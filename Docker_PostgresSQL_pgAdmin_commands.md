@@ -44,15 +44,28 @@ print(df.head())
 
 ### 3. Create the Database in pgAdmin
 
+#### a. Add a New Server
+
 1. Navigate to [http://localhost:5050/](http://localhost:5050/) and log in using your credentials.
    - **Email**: `admin@example.com` (or your configured email).
    - **Password**: `admin` (or your configured password).
 
-2. Add a new database:
-   - Right-click on **Servers > PostgreSQL > Databases**.
-   - Select **Create > Database...**.
-   - Name the database (e.g., `mydb`).
-   - Save it.
+2. Add a new server:
+   - Click on **Add New Server** in the Quick Links section.
+   - In the **General** tab:
+     - Enter a name for the server (e.g., `PostgreSQL`).
+   - Switch to the **Connection** tab and fill in the following details:
+     - **Host name/address**: `db` (or `localhost` if running locally).
+     - **Port**: `5432`.
+     - **Maintenance database**: `postgres`.
+     - **Username**: `postgres`.
+     - **Password**: `password` (or your configured password).
+   - Click **Save** to register the server.
+
+#### b. Create a New Database
+
+1. After connecting to the server, right-click on **Databases** > **Create** > **Database...**.
+2. Name the database (e.g., `mydb`) and click **Save**.
 
 ---
 
@@ -104,7 +117,7 @@ SELECT * FROM my_table LIMIT 10;
 
 ---
 
-# Pulling a DataFrame from PostgreSQL
+## Pulling a DataFrame from PostgreSQL
 
 This guide provides step-by-step instructions to pull a DataFrame from a PostgreSQL table using a Jupyter Notebook.
 
@@ -201,3 +214,5 @@ print(df.head())
 - Use this DataFrame for any further analysis or visualization tasks.
 
 ---
+
+You're now ready to pull data from PostgreSQL into a DataFrame! 🚀
