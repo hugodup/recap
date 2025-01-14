@@ -1,218 +1,216 @@
-# Pushing a CSV File into PostgreSQL using Jupyter Notebook
+# Building a Data Pipeline with Docker, PostgreSQL, and Jupyter Notebook
 
-This guide provides step-by-step instructions to load a CSV file into a PostgreSQL table using a Jupyter Notebook.
+This tutorial guides you through creating a data pipeline using Docker for PostgreSQL and pgAdmin, and running Jupyter Notebook locally.
 
 ---
 
-## Prerequisites
+## Updated Project Structure
 
-Ensure the following Python libraries are installed:
-
-```bash
-pip install pandas sqlalchemy psycopg2
+```
+postgres_pipeline/
+├── docker-compose.yml
+├── data/
+└── notebooks/
 ```
 
 ---
 
-## Steps
+## Step 1: Setting Up Docker for PostgreSQL and pgAdmin
 
-### 1. Import Required Libraries
+### 1. Create `docker-compose.yml`
 
-Open a Jupyter Notebook and import the necessary libraries:
+Create a `docker-compose.yml` file in the `postgres_pipeline/` directory with the following content:
+
+```yaml
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: parking_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+
+  jupyter:
+    build: .
+    container_name: jupyter
+    restart: always
+    volumes:
+      - ./jupyter_notebook:/app/jupyter_notebook
+    ports:
+      - "8888:8888"
+
+volumes:
+  postgres_data:
+
+```
+
+### 2. Start the Services
+
+Run the following command to start PostgreSQL and pgAdmin:
+
+```bash
+docker-compose up --build
+```
+
+- **PostgreSQL** will run on `localhost:5432`.
+- **pgAdmin** will be accessible at [http://localhost:5050](http://localhost:5050).
+
+### 3. Configure pgAdmin
+
+1. Navigate to [http://localhost:5050](http://localhost:5050) and log in with:
+   - **Email**: `admin@example.com`
+   - **Password**: `admin`
+
+2. Add a new server:
+   - Click on **Add New Server**.
+   - **General Tab**: Enter a name (e.g., `Postgres`).
+   - **Connection Tab**: Fill in the following details:
+     - **Host name/address**: `postgres`
+     - **Port**: `5432`
+     - **Username**: `postgres`
+     - **Password**: `password`
+   - Click **Save**.
+
+---
+
+## Step 2: Install Jupyter Notebook Locally
+
+### 1. Install Jupyter and Required Libraries
+
+On your local machine, install the following:
+
+```bash
+pip install jupyter pandas sqlalchemy psycopg2 kagglehub
+```
+
+### 2. Start Jupyter Notebook
+
+1. Navigate to the `notebooks/` directory:
+
+   ```bash
+   cd postgres_pipeline/notebooks
+   ```
+
+2. Start Jupyter Notebook:
+
+   ```bash
+   jupyter notebook
+   ```
+
+3. Access Jupyter Notebook at [http://localhost:8888](http://localhost:8888).
+
+---
+
+## Step 3: Download and Push the Dataset to PostgreSQL
+
+```python
+!pip install pandas sqlalchemy kagglehub psycopg2
+```
 
 ```python
 import pandas as pd
 from sqlalchemy import create_engine
+import kagglehub
 ```
 
----
-
-### 2. Load the CSV File
-
-Replace `"your_file.csv"` with the path to your CSV file.
-
 ```python
-# Load the CSV file
-csv_file_path = "your_file.csv"  # Replace with your file path
-df = pd.read_csv(csv_file_path)
+# Download the dataset using KaggleHub
+csv_file_path = kagglehub.dataset_download("mfaisalqureshi/parking")
 
-# Preview the first few rows
+print("Path to dataset files:", csv_file_path)
+
+# Load the dataset into a Pandas DataFrame
+df = pd.read_csv(csv_file_path + "/" + "Parking Data.csv")
+
+# Preview the dataset
 print(df.head())
 ```
-
 ---
 
-### 3. Create the Database in pgAdmin
-
-#### a. Add a New Server
-
-1. Navigate to [http://localhost:5050/](http://localhost:5050/) and log in using your credentials.
-   - **Email**: `admin@example.com` (or your configured email).
-   - **Password**: `admin` (or your configured password).
-
-2. Add a new server:
-   - Click on **Add New Server** in the Quick Links section.
-   - In the **General** tab:
-     - Enter a name for the server (e.g., `PostgreSQL`).
-   - Switch to the **Connection** tab and fill in the following details:
-     - **Host name/address**: `db` (or `localhost` if running locally).
-     - **Port**: `5432`.
-     - **Maintenance database**: `postgres`.
-     - **Username**: `postgres`.
-     - **Password**: `password` (or your configured password).
-   - Click **Save** to register the server.
-
-#### b. Create a New Database
-
-1. After connecting to the server, right-click on **Databases** > **Create** > **Database...**.
-2. Name the database (e.g., `mydb`) and click **Save**.
-
----
-
-### 4. Set Up PostgreSQL Connection
-
-Replace the placeholders with your PostgreSQL connection details:
-
-- `postgres_user`: Your PostgreSQL username (e.g., `postgres`).
-- `postgres_password`: Your PostgreSQL password (e.g., `password`).
-- `db_name`: The name of your database (e.g., `mydb`).
-- `host`: The hostname of your database (e.g., `localhost` or `db` if using Docker).
+## Step 4: Connect Jupyter to PostgreSQL
 
 ```python
+from sqlalchemy import create_engine
+
 # Define connection details
 postgres_user = "postgres"
 postgres_password = "password"
-db_name = "mydb"
-host = "localhost"  # or "db" if running in Docker
+db_name = "pipeline_db"
+host = "postgres"  # Use 'localhost' if running outside Docker
 
-# Create an SQLAlchemy engine
+# Create the SQLAlchemy engine
 engine = create_engine(f"postgresql+psycopg2://{postgres_user}:{postgres_password}@{host}:5432/{db_name}")
 ```
-
----
-
-### 5. Push Data to PostgreSQL
-
-Provide the name of the target table in PostgreSQL (e.g., `my_table`). If the table doesn’t exist, it will be created.
 
 ```python
 # Define the table name
-table_name = "my_table"
+table_name = "parking_data"
 
 # Push the DataFrame to PostgreSQL
-df.to_sql(table_name, engine, if_exists="replace", index=False)
+df.to_sql(table_name, engine, if_exists="replace", index=False, method="multi")
 
-print(f"Data successfully pushed to the '{table_name}' table in PostgreSQL!")
+print(f"Data successfully pushed to the '{table_name}' table!")
 ```
 
 ---
 
-### 6. Verify Data in PostgreSQL
+## Step 5: Verify the Data in pgAdmin
 
-Use pgAdmin or a SQL query tool to verify the data was successfully inserted:
+1. Open pgAdmin at [http://localhost:5050](http://localhost:5050).
+2. Navigate to the `pipeline_db` database and open the **Query Tool**.
+3. Run the query:
 
-```sql
-SELECT * FROM my_table LIMIT 10;
-```
+   ```sql
+   SELECT * FROM parking_data LIMIT 10;
+   ```
 
----
-
-## Pulling a DataFrame from PostgreSQL
-
-This guide provides step-by-step instructions to pull a DataFrame from a PostgreSQL table using a Jupyter Notebook.
+You should see the dataset successfully imported into PostgreSQL.
 
 ---
 
-### 1. Import Required Libraries
+## Step 6: Query Parking Data from Jupyter Notebook
 
-Ensure you have the necessary libraries installed and imported:
+Once the data is loaded into PostgreSQL, you can query it directly from your Jupyter Notebook using Python.
 
 ```python
-import pandas as pd
-from sqlalchemy import create_engine
+# Query the parking data from PostgreSQL
+query = "SELECT * FROM parking_data LIMIT 10;"
+df_parking = pd.read_sql(query, engine)
+
+# Preview the queried data
+print("Queried data:")
+print(df_parking.head())
 ```
 
----
-
-### 2. Set Up PostgreSQL Connection
-
-Replace the placeholders with your PostgreSQL connection details:
-
-```python
-# Define connection details
-postgres_user = "postgres"
-postgres_password = "password"
-db_name = "mydb"
-host = "localhost"  # or "db" if running in Docker
-
-# Create an SQLAlchemy engine
-engine = create_engine(f"postgresql+psycopg2://{postgres_user}:{postgres_password}@{host}:5432/{db_name}")
-```
+This allows you to integrate your parking data with further analysis or processing tasks directly in Python.
 
 ---
 
-### 3. Pull Data from PostgreSQL
+## Next Steps
 
-Specify the table name or write a SQL query to retrieve the data:
-
-```python
-# Define the table name or SQL query
-table_name = "my_table"  # Replace with your table name
-query = f"SELECT * FROM {table_name};"
-
-# Execute the query and load data into a DataFrame
-df = pd.read_sql(query, engine)
-
-# Preview the retrieved data
-print("Preview of the retrieved data:")
-print(df.head())
-```
+- Automate the pipeline to handle regular updates.
+- Add validation or preprocessing steps to clean the dataset before pushing it to PostgreSQL.
+- Use visualization tools like **Matplotlib** or **Seaborn** in Jupyter Notebook for further analysis.
 
 ---
 
-### 4. Work with the DataFrame
-
-Once the data is loaded into the DataFrame, you can perform any analysis or processing tasks in Python as needed.
-
----
-
-## Full Notebook Code Example (Pull Data)
-
-Here’s the complete code block to pull data from PostgreSQL:
-
-```python
-import pandas as pd
-from sqlalchemy import create_engine
-
-# Define PostgreSQL connection details
-postgres_user = "postgres"
-postgres_password = "password"
-db_name = "mydb"
-host = "localhost"  # or "db" if running in Docker
-
-# Create an SQLAlchemy engine
-engine = create_engine(f"postgresql+psycopg2://{postgres_user}:{postgres_password}@{host}:5432/{db_name}")
-
-# Define the table name or SQL query
-table_name = "my_table"  # Replace with your table name
-query = f"SELECT * FROM {table_name};"
-
-# Execute the query and load data into a DataFrame
-df = pd.read_sql(query, engine)
-
-# Preview the retrieved data
-print("Preview of the retrieved data:")
-print(df.head())
-```
-
----
-
-## Notes
-
-- Ensure the table name in the query matches the name in your PostgreSQL database.
-- For large datasets, you can use the `chunksize` parameter in `pd.read_sql()` to load data in chunks.
-- Use this DataFrame for any further analysis or visualization tasks.
-
----
-
-You're now ready to pull data from PostgreSQL into a DataFrame! 🚀
+You're all set to build and use your data pipeline! 🚀
