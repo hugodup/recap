@@ -1,0 +1,4 @@
+notebook
+psycopg2-binary
+pandas
+kagglehub
