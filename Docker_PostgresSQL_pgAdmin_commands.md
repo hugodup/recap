@@ -42,7 +42,21 @@ print(df.head())
 
 ---
 
-### 3. Set Up PostgreSQL Connection
+### 3. Create the Database in pgAdmin
+
+1. Navigate to [http://localhost:5050/](http://localhost:5050/) and log in using your credentials.
+   - **Email**: `admin@example.com` (or your configured email).
+   - **Password**: `admin` (or your configured password).
+
+2. Add a new database:
+   - Right-click on **Servers > PostgreSQL > Databases**.
+   - Select **Create > Database...**.
+   - Name the database (e.g., `mydb`).
+   - Save it.
+
+---
+
+### 4. Set Up PostgreSQL Connection
 
 Replace the placeholders with your PostgreSQL connection details:
 
@@ -64,7 +78,7 @@ engine = create_engine(f"postgresql+psycopg2://{postgres_user}:{postgres_passwor
 
 ---
 
-### 4. Push Data to PostgreSQL
+### 5. Push Data to PostgreSQL
 
 Provide the name of the target table in PostgreSQL (e.g., `my_table`). If the table doesn’t exist, it will be created.
 
@@ -80,54 +94,13 @@ print(f"Data successfully pushed to the '{table_name}' table in PostgreSQL!")
 
 ---
 
-### 5. Verify Data in PostgreSQL
+### 6. Verify Data in PostgreSQL
 
 Use pgAdmin or a SQL query tool to verify the data was successfully inserted:
 
 ```sql
 SELECT * FROM my_table LIMIT 10;
 ```
-
----
-
-## Full Notebook Code Example
-
-Here’s the complete code block for your reference:
-
-```python
-import pandas as pd
-from sqlalchemy import create_engine
-
-# Load the CSV file
-csv_file_path = "your_file.csv"  # Replace with your file path
-df = pd.read_csv(csv_file_path)
-print("Preview of the CSV data:")
-print(df.head())
-
-# Define PostgreSQL connection details
-postgres_user = "postgres"
-postgres_password = "password"
-db_name = "mydb"
-host = "localhost"  # or "db" if running in Docker
-
-# Create an SQLAlchemy engine
-engine = create_engine(f"postgresql+psycopg2://{postgres_user}:{postgres_password}@{host}:5432/{db_name}")
-
-# Define the table name
-table_name = "my_table"
-
-# Push the DataFrame to PostgreSQL
-df.to_sql(table_name, engine, if_exists="replace", index=False)
-
-print(f"Data successfully pushed to the '{table_name}' table in PostgreSQL!")
-```
-
----
-
-## Notes
-
-- Ensure the CSV file headers match the column names in your PostgreSQL table if the table already exists.
-- You can use `if_exists="append"` in `to_sql` to add rows to an existing table without overwriting it.
 
 ---
 
@@ -182,6 +155,13 @@ print("Preview of the retrieved data:")
 print(df.head())
 ```
 
+---
+
+### 4. Work with the DataFrame
+
+Once the data is loaded into the DataFrame, you can perform any analysis or processing tasks in Python as needed.
+
+---
 
 ## Full Notebook Code Example (Pull Data)
 
@@ -221,6 +201,3 @@ print(df.head())
 - Use this DataFrame for any further analysis or visualization tasks.
 
 ---
-
-You're now ready to pull data from PostgreSQL into a DataFrame! 🚀
-
