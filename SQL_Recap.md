@@ -1,15 +1,14 @@
-
-# SQL Cheat Sheet
+# SQL Advanced Cheat Sheet
 
 ## Querying Tables with SELECT
 - Fetch all columns from the `customers` table:
 ```sql
-SELECT * 
+SELECT *
 FROM customer;
 ```
 - Fetch `name` and `age` columns for all customers, sorted by `age` in ascending order:
 ```sql
-SELECT name, age 
+SELECT name, age
 FROM customers
 ORDER BY age ASC;
 ```
@@ -76,7 +75,7 @@ ON orders.cus_id = customers.id;
 ```
 - `LEFT JOIN`:
 ```sql
-SELECT customers.name, orders.date, orders.cost 
+SELECT customers.name, orders.date, orders.cost
 FROM customers
 LEFT JOIN orders
 ON customers.id = orders.cus_id;
@@ -92,10 +91,10 @@ ON orders.cus_id = customers.id;
 ## Aggregation and Grouping
 - Basic Aggregations:
 ```sql
-SELECT cus_id, 
-    SUM(cost) AS sum_cost, 
-    COUNT(order_id) AS count_id, 
-    MAX(cost) AS max_cost, 
+SELECT cus_id,
+    SUM(cost) AS sum_cost,
+    COUNT(order_id) AS count_id,
+    MAX(cost) AS max_cost,
     ROUND(AVG(cost), 2) AS avg_cost
 FROM orders
 GROUP BY cus_id
@@ -143,7 +142,7 @@ FROM orders;
 - Categorize orders by cost:
 ```sql
 SELECT order_id, cus_id, cost,
-CASE 
+CASE
     WHEN cost > 175 THEN 'luxury'
     WHEN cost > 100 THEN 'mid-tier'
     ELSE 'budget'
@@ -183,6 +182,37 @@ WHERE tot_sales > 350;
 - Handling NULLs: `COALESCE()`
 - Type conversion: `CAST()`
 
----
+## Performance Tuning and Query Optimization
+- Using Execution Plan:
+```sql
+EXPLAIN SELECT * FROM Employees WHERE department = 'IT';
+```
+- Optimizing Queries:
+  - **Use Indexing**
+  ```sql
+  CREATE INDEX idx_department ON Employees(department);
+  ```
+  - **Avoid SELECT ***
+  ```sql
+  SELECT name, salary FROM Employees;
+  ```
+  - **Use Joins Instead of Subqueries**
 
-Practice more SQL questions at [DataLemur](https://datalemur.com).
+## Prepared Statements
+```sql
+PREPARE stmt FROM 'SELECT * FROM Employees WHERE department = ?';
+SET @dept = 'IT';
+EXECUTE stmt USING @dept;
+DEALLOCATE PREPARE stmt;
+```
+
+## Data Integrity and Constraints
+```sql
+CREATE TABLE Employees (
+    id INT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    salary DECIMAL(10,2) CHECK (salary > 0),
+    department_id INT,
+    CONSTRAINT fk_department FOREIGN KEY (department_id) REFERENCES Departments(id)
+);
+```
