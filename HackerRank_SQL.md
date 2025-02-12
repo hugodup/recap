@@ -192,3 +192,156 @@ SELECT
 FROM valid_sequences
 GROUP BY campaign_name
 ORDER BY netsells_total DESC;
+```
+
+---
+
+## 4. SQL: Credentials Manager Activity Analysis
+
+```sql
+WITH _data AS (
+  SELECT
+    *
+    FROM
+      (
+        SELECT
+          account_id,
+          dt,
+          type,
+          mac,
+          _sequence,
+          COUNT( * ) OVER w AS _count
+          FROM
+            (
+              SELECT
+                account_id,
+                dt,
+                type,
+                mac,
+                MAX( _sequence ) OVER w AS _sequence
+                FROM
+                  (
+                    SELECT
+                      account_id,
+                      dt,
+                      type,
+                      mac,
+                      IF( account_id = LAG( account_id ) OVER w AND type = LAG( type ) OVER w, NULL, DENSE_RANK( ) OVER w ) AS _sequence
+                      FROM
+                        (
+                          SELECT
+                            *
+                            FROM
+                              activities ac
+                                LEFT JOIN accounts a
+                                  ON a.id = ac.account_id
+                        ) t
+                    WINDOW w AS (PARTITION BY account_id ORDER BY dt)
+                  ) t
+              WINDOW w AS (PARTITION BY account_id ORDER BY dt)
+            ) t
+        WINDOW w AS (PARTITION BY account_id, _sequence)
+      ) t
+    WHERE
+      type = 'ERROR' AND
+      _count >= 3
+)
+SELECT
+  mac,
+  type,
+  MIN( dt ) AS started_at,
+  MAX( dt ) AS ended_at,
+  _count    AS activities
+  FROM
+    _data
+  GROUP BY
+    account_id,
+    _sequence
+  ORDER BY
+    mac,
+    started_at
+```
+
+---
+
+## 5. Website Traffic Analysis
+
+```sql
+WITH OrderedTraffic AS (
+    SELECT 
+        EXTRACT(MONTH FROM record_day) AS month,
+        EXTRACT(YEAR FROM record_day) AS year,
+        count,
+        ROW_NUMBER() OVER (PARTITION BY EXTRACT(YEAR FROM record_day), EXTRACT(MONTH FROM record_day) ORDER BY count) AS row_num,
+        COUNT(*) OVER (PARTITION BY EXTRACT(YEAR FROM record_day), EXTRACT(MONTH FROM record_day)) AS total_rows
+    FROM traffic
+),
+MedianTraffic AS (
+    SELECT 
+        month,
+        year,
+        -- Selecting the median: middle row for odd count, average of two middle rows for even count (rounded)
+        ROUND(
+            CASE 
+                WHEN total_rows % 2 = 1 THEN 
+                    (SELECT count FROM OrderedTraffic ot2 
+                     WHERE ot1.month = ot2.month AND ot1.year = ot2.year 
+                     AND ot2.row_num = (total_rows + 1) / 2)
+                ELSE 
+                    (SELECT AVG(count) FROM OrderedTraffic ot2 
+                     WHERE ot1.month = ot2.month AND ot1.year = ot2.year 
+                     AND (ot2.row_num = total_rows / 2 OR ot2.row_num = (total_rows / 2) + 1))
+            END
+        ) AS median
+    FROM OrderedTraffic ot1
+    GROUP BY month, year
+)
+SELECT 
+    month,
+    MAX(CASE WHEN year = 2017 THEN median END) AS "2017",
+    MAX(CASE WHEN year = 2018 THEN median END) AS "2018",
+    MAX(CASE WHEN year = 2019 THEN median END) AS "2019",
+    MAX(CASE WHEN year = 2020 THEN median END) AS "2020"
+FROM MedianTraffic
+GROUP BY month
+ORDER BY month;
+
+
+```
+
+---
+
+OR
+
+```sql
+
+WITH median_util AS
+    (
+        SELECT *,
+                ROW_NUMBER() OVER (PARTITION BY year, month ORDER BY count DESC) AS RowNum,
+                COUNT(*) OVER (PARTITION BY year, month) AS total_count
+        FROM (
+                SELECT YEAR(record_day) AS 'year', MONTH(record_day) AS 'MONTH', count
+                FROM traffic
+             ) traffic
+    )
+SELECT month,
+       MAX(CASE WHEN year = 2017 THEN median_value ELSE 0 END) AS '2017',
+       MAX(CASE WHEN year = 2018 THEN median_value ELSE 0 END) AS '2018',
+       MAX(CASE WHEN year = 2019 THEN median_value ELSE 0 END) AS '2019',
+       MAX(CASE WHEN year = 2020 THEN median_value ELSE 0 END) AS '2020'
+FROM (
+        SELECT year, month, median_value
+        FROM (
+                SELECT year, month, count AS median_value
+                FROM median_util
+                WHERE RowNum = FLOOR(total_count/2)+1 AND total_count%2!=0
+                UNION
+                SELECT year, month, ROUND(AVG(count), 0) AS median_value
+                FROM median_util
+                WHERE RowNum IN (FLOOR(total_count/2)+1 , (total_count/2)) AND total_count%2=0
+                GROUP BY year, month
+             ) traffic
+        ORDER BY year, month
+     ) traffic
+GROUP BY month;
